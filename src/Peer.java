@@ -1,8 +1,4 @@
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -31,7 +27,7 @@ public class Peer {
 		for (String IP : neighbors) {
 			try {
 				me_Client = new Socket(IP, port);
-				new ConnectionHandler(me_Client);
+				new StreamHandler(me_Client);
 			} catch (UnknownHostException e) {
 				e.printStackTrace();
 				System.out.println("Neighbors not active or unreachable");
@@ -40,7 +36,6 @@ public class Peer {
 				// connections
 				beServer();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -48,29 +43,17 @@ public class Peer {
 
 	public void beServer() {
 		try {
-			me_Server= new ServerSocket(port);
+			me_Server = new ServerSocket(port);
+			while(true){
+				new StreamHandler(me_Server.accept());
+			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-}
-class ConnectionHandler{
-	InputStream is;
-	ObjectInputStream ois;
-	OutputStream os;
-	ObjectOutputStream oos;
-	public ConnectionHandler(Socket socket){
+
+	public void readObject(Message rec) {
+		System.out.println(rec.source);
 		
-	}
-}
-
-class Message {
-
-	String source;
-
-	public Message(/* ArrayList<Destination> routingTable, */String source) {
-		// this.routingTable = routingTable;
-		this.source = source;
 	}
 }
