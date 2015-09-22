@@ -15,16 +15,25 @@ class StreamHandler extends Thread {
 	Scanner myInput= new Scanner(System.in);
 	boolean listening=true;
 
-	public StreamHandler(Socket peer) {
+	public ObjectInputStream getIStream(Socket peer) {
 		//get streams on separate threads
 		try {
 			is = peer.getInputStream();
 			ois = new ObjectInputStream(is);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return ois; 
+	}
+	public ObjectOutputStream getOStream(Socket peer) {
+		//get streams on separate threads
+		try {
 			os = peer.getOutputStream();
 			oos = new ObjectOutputStream(os);
 		} catch (IOException e) {
 			e.printStackTrace();
 		} 
+		return oos;
 	}
 }
 
