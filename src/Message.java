@@ -1,6 +1,12 @@
+import java.io.Serializable;
 
-class Message {
 
+class Message implements Serializable {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	String source;
 
 	public Message(/* ArrayList<Destination> routingTable, */String source) {
