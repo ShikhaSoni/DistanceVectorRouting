@@ -4,47 +4,58 @@ import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Peer {
-	static List<String> neighbors = new ArrayList<String>();
+public class Peer extends Thread{
+	List<String> neighbors = new ArrayList<String>();
 	ConcurrentHashMap<String, Destination> routingTable1= new ConcurrentHashMap<String, Destination>();
 	Socket me_Client;
 	InetAddress server;
 	ServerSocket me_Server;
-	int port = 6999;
+	int port = 5999;
 	String ownIP;
 
 	public static void main(String[] args) {
 		Peer me = new Peer();
+		try {
+			me.ownIP = InetAddress.getLocalHost().getHostAddress();
+			System.out.println(InetAddress.getLocalHost().toString());
+		} catch (UnknownHostException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		if (args.length > 2 || args.length == 0) {
 			System.out.println("Enter at least 1 or at most 2 neighbors and their link weights");
 		}
 		for (int neighbor = 0; neighbor < args.length; neighbor++) {
-			neighbors.add(args[neighbor]);
+			me.neighbors.add(args[neighbor]);
 		}
 		me.establishConnection();
 	}
-
 	public void establishConnection() {
-		for (String destination : neighbors) {
+		System.out.println("here");
+		int count=0;
+		for(String destination:neighbors){
 			try {
-				ownIP = InetAddress.getLocalHost().getHostAddress();
-				//System.out.println("Own IP: "+ownIP);
 				me_Client = new Socket(getIP(destination), port);
-				System.out.println("Connected to " + me_Client.getInetAddress().getHostAddress());
+				System.out.println("Connecting to  "+getIP(destination));
+				System.out.println("Weight of the destination: "+  getWeight(destination));
 				Destination dest = new Destination(getIP(destination), getIP(destination), getWeight(destination));
 				routingTable1.put(getIP(destination), dest);
 				new StreamHandler(1, me_Client).start();
 				new StreamHandler(2, me_Client).start();
 			} catch (IOException e) {
-				/*System.out.println("Waiting for neighbors to become active");
-				System.out.println(e);*/
-				beServer();
+				System.out.println(destination+" not active" + e);
+				count++;
+				continue;
 			}
+		}
+		if(count>0){
+			beServer();
 		}
 	}
 
@@ -62,16 +73,22 @@ public class Peer {
 			me_Server = new ServerSocket(port);
 			while (true) {
 				s = me_Server.accept();
-				/*System.out.println("Recived connection from: "
-						+ s.getInetAddress().toString());*/
+				System.out.println("Recived connection from: "
+						+ s.getInetAddress().getHostAddress());
 				Destination dest = new Destination(s.getInetAddress().getHostAddress(), s.getInetAddress().getHostAddress(), myDistance(s.getInetAddress().getHostAddress()));
-				routingTable1.put(s.getInetAddress().toString(), dest);
+				routingTable1.put(s.getInetAddress().getHostAddress(), dest);
 				new StreamHandler(1, s).start();
 				new StreamHandler(2, s).start();
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	public String checkIP(String IP){
+		if(IP.charAt(0)=='/'){
+			return IP.substring(1);
+		}
+		return IP;
 	}
 
 	public void updateTable(Message table) {
@@ -80,20 +97,21 @@ public class Peer {
 		//check if count is smaller 
 		//System.out.println("Updating Table");
 		for(Entry<String, Destination> entry : table.routingTable.entrySet()){
-			System.out.println("1");
-			System.out.println(entry.getKey().toString() +" " +ownIP);
 			if(entry.getKey().toString().equals(ownIP))
 				continue;
 			else{
 				if(routingTable1.get(entry.getKey()) == null){
-					System.out.println("2");
+					System.out.println("New Destination added");
 					Destination newDest= new Destination(entry.getValue().destinationIP, table.source, entry.getValue().hopCount+myDistance(table.source));
 					routingTable1.put(entry.getValue().destinationIP, newDest);
 				}
 				else{
-					System.out.println("3");
-					if(routingTable1.get(entry.getKey()).hopCount>entry.getValue().hopCount){
-						routingTable1.get(entry.getKey()).hopCount=entry.getValue().hopCount;
+					System.out.println("hopcount comparison");
+					System.out.println(routingTable1.get(entry.getKey()).hopCount+" : "+ (entry.getValue().hopCount)+myDistance(table.source));
+					if((routingTable1.get(entry.getKey()).hopCount)>(entry.getValue().hopCount)+myDistance(table.source)){
+						System.out.println("hopcount less received");
+						routingTable1.get(entry.getKey()).hopCount=entry.getValue().hopCount+myDistance(table.source);
+						routingTable1.get(entry.getKey()).nextIP=table.source;
 					}
 				}
 			}
@@ -106,6 +124,7 @@ public class Peer {
 			System.out.println(" Destination "+entry.getValue().destinationIP);
 			System.out.println("NextHop "+ entry.getValue().nextIP);
 			System.out.println("Cost " +entry.getValue().hopCount);
+			System.out.println("");
 		}
 		System.out.println();
 	}
@@ -132,6 +151,7 @@ public class Peer {
 				ois = new ObjectInputStream(peer.getInputStream());
 				while (true) {
 					Message rec = (Message) ois.readObject();
+					System.out.println("Update received with table size "+rec.routingTable.size());
 				//	System.out.println(rec.source + " sent an update");
 					updateTable(rec);
 					printTable();
