@@ -6,11 +6,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Peer {
 	static List<String> neighbors = new ArrayList<String>();
-	private static List<Destination> routingTable = new CopyOnWriteArrayList<Destination>();
+	ConcurrentHashMap<String, Destination> routingTable1= new ConcurrentHashMap<String, Destination>();
 	Socket me_Client;
 	InetAddress server;
 	ServerSocket me_Server;
@@ -20,7 +21,7 @@ public class Peer {
 	public static void main(String[] args) {
 		Peer me = new Peer();
 		if (args.length > 2 || args.length == 0) {
-			System.out.println("Enter 2 neighbors");
+			System.out.println("Enter at least 1 or at most 2 neighbors and their link weights");
 		}
 		for (int neighbor = 0; neighbor < args.length; neighbor++) {
 			neighbors.add(args[neighbor]);
@@ -31,33 +32,40 @@ public class Peer {
 	public void establishConnection() {
 		for (String destination : neighbors) {
 			try {
-				ownIP = InetAddress.getLocalHost().toString();
-				me_Client = new Socket(destination, port);
-				System.out.println("Connected to " + destination);
-				Destination dest = new Destination(destination, destination, 1);
-				routingTable.add(dest);
+				ownIP = InetAddress.getLocalHost().getHostAddress();
+				//System.out.println("Own IP: "+ownIP);
+				me_Client = new Socket(getIP(destination), port);
+				System.out.println("Connected to " + me_Client.getInetAddress().getHostAddress());
+				Destination dest = new Destination(getIP(destination), getIP(destination), getWeight(destination));
+				routingTable1.put(getIP(destination), dest);
 				new StreamHandler(1, me_Client).start();
 				new StreamHandler(2, me_Client).start();
 			} catch (IOException e) {
-				System.out.println("Waiting for neighbors to become active");
-				System.out.println(e);
-				// since the host is not active become a server and wait for
-				// connections
-				beServer(port);
+				/*System.out.println("Waiting for neighbors to become active");
+				System.out.println(e);*/
+				beServer();
 			}
 		}
 	}
 
-	public void beServer(int port) {
+	private int getWeight(String destination) {
+		return Integer.parseInt(destination.split(":")[1]);
+	}
+
+	private String getIP(String destination) {
+		return destination.split(":")[0];
+	}
+
+	public void beServer() {
 		Socket s;
 		try {
 			me_Server = new ServerSocket(port);
 			while (true) {
 				s = me_Server.accept();
-				System.out.println("Recived connection from: "
-						+ s.getInetAddress().toString());
-				Destination dest = new Destination(s.getInetAddress().toString(), s.getInetAddress().toString(), 1);
-				routingTable.add(dest);
+				/*System.out.println("Recived connection from: "
+						+ s.getInetAddress().toString());*/
+				Destination dest = new Destination(s.getInetAddress().getHostAddress(), s.getInetAddress().getHostAddress(), myDistance(s.getInetAddress().getHostAddress()));
+				routingTable1.put(s.getInetAddress().toString(), dest);
 				new StreamHandler(1, s).start();
 				new StreamHandler(2, s).start();
 			}
@@ -67,27 +75,25 @@ public class Peer {
 	}
 
 	public void updateTable(Message table) {
-		synchronized (routingTable) {
-			for (int index = 0; index < table.routingTable.size(); index++) {
-				if (table.routingTable.get(index).destinationIP.equals(ownIP)) {
-					continue;
+		//1. check if ownIP is same as destinationIP
+		//2. check if the IP does  not exist
+		//check if count is smaller 
+		//System.out.println("Updating Table");
+		for(Entry<String, Destination> entry : table.routingTable.entrySet()){
+			System.out.println("1");
+			System.out.println(entry.getKey().toString() +" " +ownIP);
+			if(entry.getKey().toString().equals(ownIP))
+				continue;
+			else{
+				if(routingTable1.get(entry.getKey()) == null){
+					System.out.println("2");
+					Destination newDest= new Destination(entry.getValue().destinationIP, table.source, entry.getValue().hopCount+myDistance(table.source));
+					routingTable1.put(entry.getValue().destinationIP, newDest);
 				}
-				if (!routingTable.contains(table.routingTable.get(index))) {
-					Destination d = new Destination(
-							table.routingTable.get(index).destinationIP,
-							table.source,
-							table.routingTable.get(index).hopCount);
-					System.out.println("New Destiantion added");
-					routingTable.add(d);
-				} else {
-					for (int index1 = 0; index1 < routingTable.size(); index1++) {
-						if (routingTable.get(index1).destinationIP.equals(table.routingTable.get(index).destinationIP) ){
-							if (routingTable.get(index1).hopCount > table.routingTable
-									.get(index).hopCount) {
-								routingTable.get(index1).hopCount = table.routingTable
-										.get(index).hopCount + 1;
-							}
-						}
+				else{
+					System.out.println("3");
+					if(routingTable1.get(entry.getKey()).hopCount>entry.getValue().hopCount){
+						routingTable1.get(entry.getKey()).hopCount=entry.getValue().hopCount;
 					}
 				}
 			}
@@ -95,14 +101,22 @@ public class Peer {
 	}
 
 	public void printTable() {
-		for (int index = 0; index < routingTable.size(); index++) {
-			System.out.println("Destiantion: "
-					+ routingTable.get(index).destinationIP);
-			System.out.println("NextHop: " + routingTable.get(index).nextIP);
-			System.out.println("HopCount: " + routingTable.get(index).hopCount);
-			System.out.println();
+		//System.out.println("Printing Table");
+		for(Entry<String, Destination> entry :routingTable1.entrySet()){
+			System.out.println(" Destination "+entry.getValue().destinationIP);
+			System.out.println("NextHop "+ entry.getValue().nextIP);
+			System.out.println("Cost " +entry.getValue().hopCount);
 		}
 		System.out.println();
+	}
+
+	private int myDistance(String source) {
+		for(String neighbors: neighbors){
+			if(getIP(neighbors).equals(source)){
+				return getWeight(neighbors);
+			}
+		}
+		return 0;
 	}
 
 	class StreamHandler extends Thread {
@@ -118,7 +132,7 @@ public class Peer {
 				ois = new ObjectInputStream(peer.getInputStream());
 				while (true) {
 					Message rec = (Message) ois.readObject();
-					System.out.println(rec.source + " sent an update");
+				//	System.out.println(rec.source + " sent an update");
 					updateTable(rec);
 					printTable();
 				}
@@ -133,8 +147,8 @@ public class Peer {
 				oos = new ObjectOutputStream(peer.getOutputStream());
 				// call after every one second
 
-				System.out.println("Sending a new update");
-				Message send = new Message(routingTable, ownIP);
+				//System.out.println("Sending a new update");
+				Message send = new Message(routingTable1, ownIP);
 				oos.writeObject(send);
 			} catch (IOException e) {
 				e.printStackTrace();

@@ -20,4 +20,13 @@ public class Destination implements Serializable{
 	public String toString(){
 		return destinationIP;
 	}
+	public String getDestinationIP(){
+		return destinationIP;
+	}
+	public String getNextIP(){
+		return nextIP;
+	}
+	public int getHopCount(){
+		return hopCount;
+	}
 }

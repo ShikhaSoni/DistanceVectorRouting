@@ -1,14 +1,14 @@
 import java.io.Serializable;
-import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 class Message implements Serializable{
 
 	private static final long serialVersionUID = 1L;
 	String source;
-	List<Destination> routingTable;
+	ConcurrentHashMap<String, Destination> routingTable;
 
-	public Message(List<Destination> neighbors, String source) {
+	public Message(ConcurrentHashMap<String, Destination> neighbors, String source) {
 		this.routingTable = neighbors;
 		this.source = source;
 	}
