@@ -178,23 +178,6 @@ public class Peer extends Thread {
 				ois = new ObjectInputStream(peer.getInputStream());
 				while (true) {
 					Message rec = (Message) ois.readObject();
-					System.out
-							.println("******************************************************************");
-					System.out.println("Update from " + rec.source);
-					for (Entry<String, Destination> entry : rec.routingTable
-							.entrySet()) {
-						System.out.println("Destination   "
-								+ entry.getValue().destinationIP);
-						System.out.println("SubnetMask "
-								+ entry.getValue().subnetMask);
-						System.out.println("NextHop       "
-								+ entry.getValue().nextIP);
-						System.out.println("Cost               "
-								+ entry.getValue().hopCount);
-						System.out.println("===========");
-					}
-					System.out
-							.println("******************************************************************");
 					updateTable(rec);
 					printTable();
 				}
@@ -214,33 +197,10 @@ public class Peer extends Thread {
 					Thread.sleep(10000);
 					Message send = new Message(routingTable, ownIP);
 					oos.writeObject(send);
-					System.out
-							.println("******************************************************************");
-					System.out
-							.println("Sending update to: "
-									+ peer.getInetAddress().getHostAddress()
-											.toString());
-					for (Entry<String, Destination> entry : routingTable
-							.entrySet()) {
-						System.out.println("Destination   "
-								+ entry.getValue().destinationIP);
-						System.out.println("SubnetMask "
-								+ entry.getValue().subnetMask);
-						System.out.println("NextHop       "
-								+ entry.getValue().nextIP);
-						System.out.println("Cost               "
-								+ entry.getValue().hopCount);
-					}
-					System.out
-							.println("******************************************************************");
-
+					oos.flush();
+					oos.reset();
 				}
 			} catch (IOException | InterruptedException e) {
-				/*
-				 * System.out.println(peer.getInetAddress().getHostAddress() +
-				 * "shut down");
-				 */
-				// remove(peer.getInetAddress().getHostAddress().toString());
 			}
 		}
 
