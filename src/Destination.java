@@ -7,26 +7,16 @@ public class Destination implements Serializable{
 	 */
 	private static final long serialVersionUID = 1L;
 
-	int s=10;
-
-	String destinationIP, nextIP, subnetMask;
+	String destinationIP, nextIP;
 	int hopCount;
+	String subnetMask;
 	public Destination(String destinationIP, String nextIP, int hopCount){
 		this.destinationIP=destinationIP;
 		this.nextIP=nextIP;
-		//this.subnetMask= subnetMask;
 		this.hopCount=hopCount;
+		subnetMask="255.255.0.0";
 	}
 	public String toString(){
 		return destinationIP;
-	}
-	public String getDestinationIP(){
-		return destinationIP;
-	}
-	public String getNextIP(){
-		return nextIP;
-	}
-	public int getHopCount(){
-		return hopCount;
 	}
 }
