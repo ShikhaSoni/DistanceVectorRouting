@@ -1,3 +1,7 @@
+/**
+ * @author Shikha Soni
+ * 
+ */
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -87,10 +91,6 @@ public class Peer extends Thread {
 				new StreamHandler(2, s).start();
 			}
 		} catch (IOException e) {
-			/*
-			 * System.out.println(me_Server.getInetAddress().getHostAddress() +
-			 * " just shut down from be Server");
-			 */
 			System.out.println("from BeServer");
 
 		} catch (InterruptedException e) {
@@ -138,17 +138,22 @@ public class Peer extends Thread {
 				.println("******************************************************************");
 		System.out.println("Table size: " + routingTable.size());
 		for (Entry<String, Destination> entry : routingTable.entrySet()) {
-			System.out.println("Destination   "
-					+ entry.getValue().destinationIP);
-			System.out.println("SubnetMask  " + entry.getValue().subnetMask);
-			System.out.println("NextHop       " + entry.getValue().nextIP);
-			System.out.println("Cost               "
-					+ entry.getValue().hopCount);
-			System.out.println();
+			System.out.println(getPrefix(entry.getValue().destinationIP)+"		255.255.0.0"+"		"	+entry.getValue().nextIP+"		" +entry.getValue().hopCount);
 		}
 		System.out
 				.println("******************************************************************");
 		System.out.println();
+	}
+	
+	public String getPrefix(String IP){
+		System.out.println(IP);
+		String[] s= IP.split("\\.");
+		System.out.println(s.length);
+		String one=Integer.toString(Integer.parseInt(s[0])&255);
+		String two=Integer.toString(Integer.parseInt(s[1])&255);
+		String three= Integer.toString(Integer.parseInt(s[2])&255);
+		String four= Integer.toString(Integer.parseInt(s[3])&0);
+		return one+"."+two+"."+three+"."+four;
 	}
 
 	private int myDistance(String source) {
