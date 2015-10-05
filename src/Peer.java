@@ -1,5 +1,6 @@
 /**
  * @author Shikha Soni
+ * Distance Vector Routing RIP v2
  * 
  */
 import java.io.IOException;
@@ -23,13 +24,19 @@ public class Peer extends Thread {
 	int port = 5999;
 	String ownIP;
 
+	/**
+	 * Main method to start the Peer
+	 * 
+	 * @param args
+	 *            Command Line arguements take the information of the neighbor
+	 *            as "IPAddress:linkcost"
+	 */
 	public static void main(String[] args) {
 		Peer me = new Peer();
 		try {
 			me.ownIP = InetAddress.getLocalHost().getHostAddress();
 			System.out.println(InetAddress.getLocalHost().toString());
 		} catch (UnknownHostException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		if (args.length > 2 || args.length == 0) {
@@ -43,6 +50,12 @@ public class Peer extends Thread {
 		me.establishConnection();
 	}
 
+	/**
+	 * EstablishConnection is used to connect to the specified neighbors in the
+	 * arraylist If the connection is not successful, the the same peer wait for
+	 * the neighbors to connect using beServer
+	 * 
+	 */
 	public void establishConnection() {
 		int count = 0;
 		for (String destination : neighbors) {
@@ -53,9 +66,8 @@ public class Peer extends Thread {
 						getIP(destination), getWeight(destination));
 				routingTable.put(getIP(destination), dest);
 				new StreamHandler(1, me_Client).start();
-				Thread.sleep(100);
 				new StreamHandler(2, me_Client).start();
-			} catch (IOException | InterruptedException e) {
+			} catch (IOException e) {
 				System.out.println(destination + " not active");
 				count++;
 				continue;
@@ -66,14 +78,32 @@ public class Peer extends Thread {
 		}
 	}
 
+	/**
+	 * This method separates the IP and link cost taken from the command line
+	 * arguments
+	 * 
+	 * @param destination
+	 *            The String of the form IP:Linkcost
+	 * @return the Weigt is extracted from the string and returned back
+	 */
 	private int getWeight(String destination) {
 		return Integer.parseInt(destination.split(":")[1]);
 	}
 
+	/**
+	 * This method extracts the IP out of the string
+	 * 
+	 * @param destination
+	 *            IP:Linkcost
+	 * @return it returns the IP from the given string
+	 */
 	private String getIP(String destination) {
 		return destination.split(":")[0];
 	}
 
+	/**
+	 * Executed when one or more neighbors are inactive
+	 */
 	public void beServer() {
 		Socket s;
 		try {
@@ -87,29 +117,24 @@ public class Peer extends Thread {
 						myDistance(s.getInetAddress().getHostAddress()));
 				routingTable.put(s.getInetAddress().getHostAddress(), dest);
 				new StreamHandler(1, s).start();
-				Thread.sleep(100);
 				new StreamHandler(2, s).start();
 			}
 		} catch (IOException e) {
 			System.out.println("from BeServer");
 
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 	}
 
-	public String checkIP(String IP) {
-		if (IP.charAt(0) == '/') {
-			return IP.substring(1);
-		}
-		return IP;
-	}
-
+	/**
+	 * The function updateTable takes in the packet received from the neighbor
+	 * 
+	 * @param table
+	 *            the packet received The three conditions are checked: 1. check
+	 *            if ownIP is same as destinationIP 2. check if the IP does not
+	 *            exist 3. check if count is smaller
+	 */
 	public void updateTable(Message table) {
-		// 1. check if ownIP is same as destinationIP
-		// 2. check if the IP does not exist
-		// check if count is smaller
+
 		for (Entry<String, Destination> entry : table.routingTable.entrySet()) {
 			if (entry.getKey().toString().equals(ownIP))
 				continue;
@@ -133,29 +158,49 @@ public class Peer extends Thread {
 		}
 	}
 
+	/**
+	 * printTable prints the routing table of the Peer after the the update from
+	 * neighbor is received
+	 */
 	public void printTable() {
 		System.out
 				.println("******************************************************************");
 		System.out.println("Table size: " + routingTable.size());
 		for (Entry<String, Destination> entry : routingTable.entrySet()) {
-			System.out.println(getPrefix(entry.getValue().destinationIP)+"		255.255.0.0"+"		"	+entry.getValue().nextIP+"		" +entry.getValue().hopCount);
+			System.out.println(getPrefix(entry.getValue().destinationIP)
+					+ "		255.255.0.0" + "		" + entry.getValue().nextIP + "		"
+					+ entry.getValue().hopCount);
 		}
 		System.out
 				.println("******************************************************************");
 		System.out.println();
 	}
-	
-	public String getPrefix(String IP){
+
+	/**
+	 * This method returns back the network prefix from the subnet mask and the
+	 * IP
+	 * 
+	 * @param IP
+	 *            The network prefix is extracted from the IP
+	 * @return returns the network prefix
+	 */
+	public String getPrefix(String IP) {
 		System.out.println(IP);
-		String[] s= IP.split("\\.");
+		String[] s = IP.split("\\.");
 		System.out.println(s.length);
-		String one=Integer.toString(Integer.parseInt(s[0])&255);
-		String two=Integer.toString(Integer.parseInt(s[1])&255);
-		String three= Integer.toString(Integer.parseInt(s[2])&255);
-		String four= Integer.toString(Integer.parseInt(s[3])&0);
-		return one+"."+two+"."+three+"."+four;
+		String one = Integer.toString(Integer.parseInt(s[0]) & 255);
+		String two = Integer.toString(Integer.parseInt(s[1]) & 255);
+		String three = Integer.toString(Integer.parseInt(s[2]) & 255);
+		String four = Integer.toString(Integer.parseInt(s[3]) & 0);
+		return one + "." + two + "." + three + "." + four;
 	}
 
+	/**
+	 * myDistance returns the local neighbor link weight of the source
+	 * 
+	 * @param source
+	 * @return returns the weight
+	 */
 	private int myDistance(String source) {
 		for (String neighbors : neighbors) {
 			if (getIP(neighbors).equals(source)) {
@@ -165,6 +210,13 @@ public class Peer extends Thread {
 		return 0;
 	}
 
+	/**
+	 * This class is written to handle the connections and make the streams on
+	 * separate threads
+	 * 
+	 * @author Shikha Soni
+	 *
+	 */
 	class StreamHandler extends Thread {
 		ObjectInputStream ois;
 		ObjectOutputStream oos;
@@ -172,11 +224,20 @@ public class Peer extends Thread {
 		int id;
 		Socket socket;
 
+		/**
+		 * The constructor takes the choice of stream to be made 
+		 * @param id
+		 * @param socket
+		 */
 		public StreamHandler(int id, Socket socket) {
 			this.id = id;
 			this.socket = socket;
 		}
 
+		/**
+		 * The input stream is made here and the objects are read from this stream
+		 * @param peer The socket of the neighbor
+		 */
 		public void getIStream(Socket peer) {
 			// get streams on separate threads
 			try {
@@ -193,6 +254,10 @@ public class Peer extends Thread {
 			}
 		}
 
+		/**
+		 * This function makes the output stream
+		 * @param peer The socket of the neighbor
+		 */
 		public void getOStream(Socket peer) {
 			// get streams on separate threads
 			try {
@@ -209,6 +274,9 @@ public class Peer extends Thread {
 			}
 		}
 
+		/**
+		 * the run method to create the threads
+		 */
 		public void run() {
 			if (id == 1)
 				getIStream(socket);
@@ -216,6 +284,10 @@ public class Peer extends Thread {
 				getOStream(socket);
 		}
 
+		/**
+		 * remove method removes the 
+		 * @param failedDest
+		 */
 		public void remove(String failedDest) {
 			System.out.println("Removing " + failedDest + " from table");
 			for (Entry<String, Destination> entry : routingTable.entrySet()) {
