@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -120,8 +121,7 @@ public class Peer extends Thread {
 				new StreamHandler(2, s).start();
 			}
 		} catch (IOException e) {
-			System.out.println("from BeServer");
-
+			System.out.println(e);
 		}
 	}
 
@@ -148,7 +148,6 @@ public class Peer extends Thread {
 				} else {
 					if ((routingTable.get(entry.getKey()).hopCount) > (entry
 							.getValue().hopCount) + myDistance(table.source)) {
-						System.out.println("hopcount less received");
 						routingTable.get(entry.getKey()).hopCount = entry
 								.getValue().hopCount + myDistance(table.source);
 						routingTable.get(entry.getKey()).nextIP = table.source;
@@ -162,13 +161,12 @@ public class Peer extends Thread {
 	 * printTable prints the routing table of the Peer after the the update from
 	 * neighbor is received
 	 */
-	public void printTable() {
+	public synchronized void printTable() {
 		System.out
 				.println("******************************************************************");
-		System.out.println("Table size: " + routingTable.size());
 		for (Entry<String, Destination> entry : routingTable.entrySet()) {
 			System.out.println(getPrefix(entry.getValue().destinationIP)
-					+ "		255.255.0.0" + "		" + entry.getValue().nextIP + "		"
+					+ "		255.255.255.0" + "		" + entry.getValue().nextIP + "		"
 					+ entry.getValue().hopCount);
 		}
 		System.out
@@ -185,9 +183,7 @@ public class Peer extends Thread {
 	 * @return returns the network prefix
 	 */
 	public String getPrefix(String IP) {
-		System.out.println(IP);
 		String[] s = IP.split("\\.");
-		System.out.println(s.length);
 		String one = Integer.toString(Integer.parseInt(s[0]) & 255);
 		String two = Integer.toString(Integer.parseInt(s[1]) & 255);
 		String three = Integer.toString(Integer.parseInt(s[2]) & 255);
@@ -225,7 +221,8 @@ public class Peer extends Thread {
 		Socket socket;
 
 		/**
-		 * The constructor takes the choice of stream to be made 
+		 * The constructor takes the choice of stream to be made
+		 * 
 		 * @param id
 		 * @param socket
 		 */
@@ -235,8 +232,11 @@ public class Peer extends Thread {
 		}
 
 		/**
-		 * The input stream is made here and the objects are read from this stream
-		 * @param peer The socket of the neighbor
+		 * The input stream is made here and the objects are read from this
+		 * stream
+		 * 
+		 * @param peer
+		 *            The socket of the neighbor
 		 */
 		public void getIStream(Socket peer) {
 			// get streams on separate threads
@@ -250,13 +250,15 @@ public class Peer extends Thread {
 			} catch (IOException | ClassNotFoundException e) {
 				System.out.println(peer.getInetAddress().getHostAddress()
 						+ "just shut down");
-				// remove(peer.getInetAddress().getHostAddress().toString());
+				remove(peer.getInetAddress().getHostAddress().toString());
 			}
 		}
 
 		/**
 		 * This function makes the output stream
-		 * @param peer The socket of the neighbor
+		 * 
+		 * @param peer
+		 *            The socket of the neighbor
 		 */
 		public void getOStream(Socket peer) {
 			// get streams on separate threads
@@ -264,13 +266,20 @@ public class Peer extends Thread {
 				oos = new ObjectOutputStream(peer.getOutputStream());
 				// call after every one second
 				while (true) {
-					Thread.sleep(10000);
-					Message send = new Message(routingTable, ownIP);
+					Thread.sleep(5000);
+					// make a new object
+					Hashtable<String, Destination> newTable = makeNew(peer
+							.getInetAddress().getHostAddress());
+					Message send = new Message(newTable, ownIP);
 					oos.writeObject(send);
 					oos.flush();
 					oos.reset();
 				}
 			} catch (IOException | InterruptedException e) {
+				System.out.println(peer.getInetAddress().getHostAddress()
+						+ "just shut down");
+				System.out.println(e);
+				remove(peer.getInetAddress().getHostAddress().toString());
 			}
 		}
 
@@ -284,28 +293,23 @@ public class Peer extends Thread {
 				getOStream(socket);
 		}
 
-		/**
-		 * remove method removes the 
-		 * @param failedDest
-		 */
-		public void remove(String failedDest) {
-			System.out.println("Removing " + failedDest + " from table");
+		public Hashtable<String, Destination> makeNew(String ip) {
+			Hashtable<String, Destination> tempTable = new Hashtable<>();
 			for (Entry<String, Destination> entry : routingTable.entrySet()) {
-				if (entry.getKey().equals(failedDest)) {
-					routingTable.remove(entry.getKey());
-					break;
+				if (!entry.getValue().nextIP.equals(ip)) {
+					tempTable.put(entry.getKey(), entry.getValue());
+				}
+			}
+			return tempTable;
+		}
+		public void remove(String IP) {
+			Iterator<String> it = routingTable.keySet().iterator();
+			while (it.hasNext()) {
+				String s = routingTable.get(it.next()).destinationIP;
+				if (IP.equals(s)) {
+					it.remove();
 				}
 			}
 		}
-
-		/*
-		 * public ConcurrentHashMap<String, Destination> makeNew(String ip) {
-		 * System.out.println("Building  new map to send ");
-		 * ConcurrentHashMap<String, Destination> tempTable = new
-		 * ConcurrentHashMap<>(); for (Entry<String, Destination> entry :
-		 * routingTable.entrySet()) { if (!entry.getValue().nextIP.equals(ip)) {
-		 * tempTable.put(entry.getKey(), entry.getValue()); } } return
-		 * tempTable; }
-		 */
 	}
 }
